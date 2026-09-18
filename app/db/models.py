@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utc_now
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship
@@ -13,7 +13,7 @@ class Vendor(Base):
     id = Column(Integer, primary_key=True)
     phone_number = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     purchases = relationship("Purchase", back_populates="vendor")
     sales = relationship("Sale", back_populates="vendor")
@@ -30,7 +30,7 @@ class Purchase(Base):
     quantity = Column(Float, nullable=False)
     unit = Column(String, default="kg")
     cost = Column(Float, nullable=False)  # total cost, KES
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="purchases")
 
@@ -45,7 +45,7 @@ class Sale(Base):
     unit = Column(String, default="kg")
     price = Column(Float, nullable=False)  # total price, KES
     source = Column(String, default="ussd")  # ussd | voice
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="sales")
 
@@ -60,7 +60,7 @@ class Debt(Base):
     amount = Column(Float, nullable=False)
     settled = Column(Boolean, default=False)
     notify_customer = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="debts")
 
@@ -81,6 +81,6 @@ class Invoice(Base):
     amount = Column(Float, nullable=False)
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.pending)
     deadline = Column(DateTime, nullable=False)  # 30 days from creation, per eTIMS buyer-initiated rule
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="invoices")

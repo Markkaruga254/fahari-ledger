@@ -3,6 +3,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.db.session import SessionLocal
 from app.services import ledger
+from app.services import notifications
 from app.voice.asr_client import transcribe
 from app.voice.item_parser import parse_transcript
 
@@ -41,12 +42,27 @@ async def voice_recording_callback(phoneNumber: str = Form(...), recordingUrl: s
 
     db = SessionLocal()
     try:
-        ledger.log_sale(db, phoneNumber, parsed["item"], parsed["quantity"], parsed["price"], source="voice")
+        ledger.log_sale(
+            db,
+            phoneNumber,
+            parsed["item"],
+            parsed["quantity"],
+            parsed["price"],
+            source="voice",
+        )
     finally:
         db.close()
 
+    notifications.send_voice_sale_confirmation(
+        phoneNumber,
+        parsed["item"],
+        parsed["quantity"],
+        parsed["price"],
+    )
+
     confirmation = (
-        f"Confirmed: sold {parsed['quantity']} {parsed['item']} for {parsed['price']} shillings."
+        f"Confirmed: sold {parsed['quantity']:g} {parsed['item']} "
+        f"for {parsed['price']:.0f} shillings. I also sent an SMS confirmation."
     )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'

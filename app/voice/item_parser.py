@@ -1,9 +1,10 @@
 """
 Keyword/segment matcher against a fixed vocabulary — deliberately NOT a
 trained NLU model. Given a transcript like "kilo mbili za sukuma bei mia
-moja", find the known item, then resolve the quantity from the words before
-it and the price from the words after "bei". Falls back to None so the
-caller can ask a clarifying question rather than guessing wrong.
+moja", find the known item, resolve quantity from the words before it, and
+resolve price from a supported price marker such as "bei", "for", or "at".
+Falls back to None so the caller can ask a clarifying question rather than
+guessing wrong.
 """
 import re
 
@@ -19,6 +20,8 @@ _SINGLE_WORD_NUMBERS = {
     "sita": 6, "saba": 7, "nane": 8, "tisa": 9, "kumi": 10,
     "mia": 100,
 }
+
+_PRICE_MARKERS = ("bei", "for", "at")
 
 
 def _resolve_number(segment: str) -> float | None:
@@ -46,9 +49,12 @@ def parse_transcript(transcript: str) -> dict | None:
 
     quantity = _resolve_number(before)
     price = None
-    if "bei" in after:
-        price_segment = after.split("bei", 1)[1]
-        price = _resolve_number(price_segment)
+
+    for marker in _PRICE_MARKERS:
+        if marker in after:
+            price_segment = after.split(marker, 1)[1]
+            price = _resolve_number(price_segment)
+            break
 
     if quantity is None:
         return None

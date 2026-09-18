@@ -17,6 +17,13 @@ def etims_invoice_alert(buyer_name: str, amount: float, days_left: int) -> str:
     )
 
 
+def voice_sale_confirmation(item: str, quantity: float, price: float) -> str:
+    return (
+        f"Fahari: Sale recorded — {quantity:g}kg {item} for KES {price:.0f}. "
+        "Source: voice."
+    )
+
+
 def end_of_day_summary(
     total_sales: float,
     total_owed: float,

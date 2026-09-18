@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from app.utils.time import utc_now
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -86,5 +88,5 @@ def test_stock_never_goes_negative(db):
         db,
         vendor.id,
         "tilapia",
-        datetime.utcnow() - timedelta(days=1),
+        utc_now() - timedelta(days=1),
     ) == 0

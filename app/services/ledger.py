@@ -4,6 +4,8 @@ This is the durable business-event layer underneath USSD, SMS and Voice.
 """
 from datetime import datetime, timedelta
 
+from app.utils.time import utc_now
+
 from sqlalchemy.orm import Session
 
 from app.db.models import Vendor, Purchase, Sale, Debt, Invoice, InvoiceStatus
@@ -95,7 +97,7 @@ def stock_remaining(db: Session, vendor_id: int, item: str, since: datetime) -> 
 
 
 def today_summary(db: Session, vendor_id: int) -> dict:
-    since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    since = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     sales = db.query(Sale).filter(
         Sale.vendor_id == vendor_id,
@@ -151,7 +153,7 @@ def create_invoice(
         buyer_name=buyer_name,
         amount=amount,
         status=InvoiceStatus.pending,
-        deadline=datetime.utcnow() + timedelta(days=deadline_days),
+        deadline=utc_now() + timedelta(days=deadline_days),
     )
     db.add(invoice)
     db.commit()
@@ -165,7 +167,7 @@ def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
         raise ValueError("Invoice not found")
     if invoice.status != InvoiceStatus.pending:
         raise ValueError("Invoice is no longer pending")
-    if datetime.utcnow() > invoice.deadline:
+    if utc_now() > invoice.deadline:
         invoice.status = InvoiceStatus.auto_rejected
         db.commit()
         raise ValueError("Invoice deadline has passed")

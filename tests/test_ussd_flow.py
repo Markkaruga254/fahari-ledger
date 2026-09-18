@@ -18,6 +18,7 @@ PHONE = "+254700000009"
 
 
 def setup_function():
+    menus.notifications.send_sms = lambda *args, **kwargs: {"ok": True}
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -34,6 +35,7 @@ def setup_function():
 
 def teardown_function():
     menus.SessionLocal = None
+    menus.notifications.send_sms = lambda *args, **kwargs: {"ok": True}
     setup_function.db.dispose()
 
 
@@ -95,9 +97,16 @@ def test_debt_flow_records_and_requires_notification_choice():
     assert ended is False
     assert "Choose 1 for Yes or 2 for No" in response
 
+    sent = []
+    menus.notifications.send_sms = lambda to, message: sent.append((to, message))
+
     response, ended = step("ussd-debt", "3*+254711111111*tilapia*2000*1")
     assert ended is True
     assert "KES 2000 owed" in response
+    assert sent == [(
+        "+254711111111",
+        "You owe the seller KES 2000 for tilapia, logged today via Fahari Ledger.",
+    )]
 
     db = menus.SessionLocal()
     try:
