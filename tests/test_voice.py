@@ -27,6 +27,22 @@ def test_parse_requires_known_item_and_quantity():
     assert parse_transcript("tilapia for 3000") is None
 
 
+def test_voice_callback_uses_public_recording_url(monkeypatch):
+    monkeypatch.setattr(router.settings, "public_base_url", "https://demo.example.com")
+
+    response = __import__("asyncio").run(router.voice_callback(PHONE))
+
+    assert 'callbackUrl="https://demo.example.com/voice/recording"' in response
+
+
+def test_voice_callback_falls_back_to_relative_url(monkeypatch):
+    monkeypatch.setattr(router.settings, "public_base_url", "")
+
+    response = __import__("asyncio").run(router.voice_callback(PHONE))
+
+    assert 'callbackUrl="/voice/recording"' in response
+
+
 def test_voice_recording_persists_sale_and_sends_sms(monkeypatch):
     engine = create_engine(
         "sqlite://",
