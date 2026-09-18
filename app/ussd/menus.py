@@ -5,6 +5,8 @@ Design principle: keep the core actions short and predictable. The business
 event is committed before the session ends; telecom notifications remain
 outside the core ledger path.
 """
+from datetime import datetime
+
 from app.db.session import SessionLocal
 from app.services import ledger
 from app.ussd.session import get_session, clear_session
@@ -12,6 +14,7 @@ from app.ussd.session import get_session, clear_session
 
 def handle(session_id: str, phone_number: str, text: str) -> tuple[str, bool]:
     session = get_session(session_id)
+    session["phone_number"] = phone_number
     parts = text.split("*") if text else []
     last_input = parts[-1] if parts else ""
     state = session["state"]
@@ -209,7 +212,7 @@ def _render_invoices_menu(phone_number: str) -> str:
 
         lines = ["CON Pending invoices:"]
         for inv in pending[:3]:
-            days_left = max((inv.deadline - __import__("datetime").datetime.utcnow()).days, 0)
+            days_left = max((inv.deadline - datetime.utcnow()).days, 0)
             lines.append(f"{inv.id}. {inv.buyer_name} KES {inv.amount:.0f} ({days_left}d left)")
         lines.append("Enter invoice number")
         return "\n".join(lines)
