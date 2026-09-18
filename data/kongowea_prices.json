@@ -1,0 +1,9 @@
+{
+  "tomato": {"unit": "kg", "typical_price_kes": 25},
+  "onion": {"unit": "piece", "typical_price_kes": 4},
+  "sukuma": {"unit": "bunch", "typical_price_kes": 15},
+  "cabbage": {"unit": "piece", "typical_price_kes": 50},
+  "tilapia": {"unit": "kg", "typical_price_kes": 350},
+  "potato": {"unit": "kg", "typical_price_kes": 60},
+  "carrot": {"unit": "kg", "typical_price_kes": 70}
+}
