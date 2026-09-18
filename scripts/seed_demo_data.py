@@ -24,6 +24,16 @@ DEMO_CUSTOMER_PHONE = "+254711111111"
 DEMO_BUYER = "Nyali Hotel Supplies"
 
 
+def _demo_event_timestamps(now: datetime) -> tuple[datetime, datetime, datetime, datetime]:
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return (
+        day_start + timedelta(hours=8),
+        day_start + timedelta(hours=11),
+        day_start + timedelta(hours=13),
+        day_start + timedelta(hours=14),
+    )
+
+
 def _reset_demo_vendor(db):
     vendor = (
         db.query(Vendor)
@@ -68,24 +78,24 @@ def run(reset: bool = False):
             )
             return
 
-        # Use relative timestamps so the scenario is always "today", regardless
-        # of when the rehearsal is run.
+        # Anchor seeded events to today's business-day window.
         now = datetime.utcnow()
+        purchase_at, sale_one_at, sale_two_at, debt_at = _demo_event_timestamps(now)
 
         purchase = ledger.log_purchase(
             db, DEMO_VENDOR_PHONE, "tilapia", quantity=30, cost=12000
         )
-        purchase.created_at = now - timedelta(hours=8)
+        purchase.created_at = purchase_at
 
         sale_one = ledger.log_sale(
             db, DEMO_VENDOR_PHONE, "tilapia", quantity=8, price=4800
         )
-        sale_one.created_at = now - timedelta(hours=5)
+        sale_one.created_at = sale_one_at
 
         sale_two = ledger.log_sale(
             db, DEMO_VENDOR_PHONE, "tilapia", quantity=5, price=3000
         )
-        sale_two.created_at = now - timedelta(hours=3)
+        sale_two.created_at = sale_two_at
 
         debt = ledger.log_debt(
             db,
@@ -95,7 +105,7 @@ def run(reset: bool = False):
             2000,
             notify_customer=False,
         )
-        debt.created_at = now - timedelta(hours=2)
+        debt.created_at = debt_at
 
         invoice = ledger.create_invoice(
             db,

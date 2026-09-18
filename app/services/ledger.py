@@ -178,6 +178,16 @@ def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
 
 
 def pending_invoices(db: Session, vendor_id: int):
+    expired = db.query(Invoice).filter(
+        Invoice.vendor_id == vendor_id,
+        Invoice.status == InvoiceStatus.pending,
+        Invoice.deadline < datetime.utcnow(),
+    ).all()
+    if expired:
+        for invoice in expired:
+            invoice.status = InvoiceStatus.auto_rejected
+        db.commit()
+
     return db.query(Invoice).filter(
         Invoice.vendor_id == vendor_id,
         Invoice.status == InvoiceStatus.pending,
