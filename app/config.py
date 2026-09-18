@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -15,8 +15,7 @@ class Settings(BaseSettings):
     overstock_hour_threshold: int = 15  # 24h clock, e.g. 15 = 3pm
     overstock_stock_ratio: float = 0.4  # nudge if > 40% of morning stock unsold by the hour above
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()
