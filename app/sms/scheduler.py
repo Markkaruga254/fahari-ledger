@@ -4,7 +4,7 @@ The scheduler derives stock from the ledger rather than reconstructing it from
 only sold items. A vendor can therefore receive an overstock alert even when
 an item has been purchased but has not sold yet.
 """
-from datetime import datetime
+from app.utils.time import utc_now
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -29,7 +29,7 @@ def reset_overstock_alerts() -> None:
 def check_overstock_job():
     db = SessionLocal()
     try:
-        today = datetime.utcnow().date().isoformat()
+        today = utc_now().date().isoformat()
 
         for vendor in db.query(Vendor).all():
             summary = ledger.today_summary(db, vendor.id)
