@@ -7,8 +7,6 @@
 
 This document is the engineering reference for **what Fahari Ledger currently has, what has been tested, what is intentionally simulated, and what we build next**.
 
-It should be updated as major milestones are completed.
-
 ---
 
 ## 1. Current product thesis
@@ -191,13 +189,19 @@ The parser currently uses a controlled vocabulary / deterministic matching appro
 
 ## 3. Africa's Talking integration status
 
-### What is ready
+### Current telecom access
 
-The application is structured around Africa's Talking telecom channels.
+**Africa's Talking has now provided Fahari Ledger with a Voice Test Number for a two-week testing window.**
 
-Public callback handling has been tested through **ngrok**.
+This changes the immediate plan: Voice is no longer waiting on approval. We can now perform real phone-based Voice integration testing.
 
-Verified locally/publicly:
+**Testing window:** two weeks from the date the test number was issued.
+
+The exact number should **not** be committed to this public repository or documentation. Store it securely in the local/environment configuration used for testing.
+
+### What is already verified
+
+Before receiving the real test number, we verified through local/public testing:
 
 - `/voice` returns HTTP 200
 - Voice response is valid XML
@@ -205,22 +209,20 @@ Verified locally/publicly:
 - Public `/voice/recording` endpoint is reachable
 - Failure in the ASR path produces a graceful user-facing fallback
 
-### Voice Test Number
+### What the test number now lets us verify
 
-Africa's Talking Voice Sandbox is currently not the route we are relying on for testing.
+We can now test the complete real-world Voice path:
 
-A request for an **Africa's Talking Voice Test Number** has been submitted for Fahari Ledger and is awaiting approval.
+`phone call → AT Voice → Fahari callback → recording → ASR → parser → ledger → SMS → spoken confirmation`
 
-Until that is approved, we should not claim that a real end-to-end phone call has been tested.
+This should become an immediate integration milestone rather than a future item.
 
 ### Remaining telecom integration
 
-The next major milestone is:
-
 - Africa's Talking **USSD integration**
 - Africa's Talking **SMS integration**
-- Real delivery/callback testing where applicable
-- Voice Test Number integration once approved
+- Real Voice end-to-end testing using the supplied test number
+- Failure/retry behaviour across all telecom channels
 
 ---
 
@@ -266,9 +268,14 @@ No warnings were reported.
 
 Automated tests prove that our application logic behaves as expected.
 
-They do **not** yet prove that the complete system works over a real Kenyan phone network through Africa's Talking.
+They do **not** replace real telecom integration testing.
 
-That is the next integration-testing stage.
+The next test layer is now:
+
+1. **Real Voice call**
+2. **Real USSD session**
+3. **Real SMS delivery**
+4. **Full cross-channel scenario**
 
 ---
 
@@ -358,7 +365,29 @@ The important architectural rule is:
 
 These are intentional next-stage items, not failures.
 
-### Priority 1 — Real Africa's Talking USSD
+### Priority 1 — Real Africa's Talking Voice test
+
+**NEW: Test number received.**
+
+Build and verify:
+
+- Configure the supplied Voice Test Number
+- Point the Voice callback to the public application
+- Make real calls
+- Record transactions
+- Verify recording callbacks
+- Verify transcription
+- Verify parsing
+- Verify database writes
+- Verify SMS confirmation
+- Verify spoken confirmation
+- Test ASR failure fallback
+
+**Acceptance condition:** one complete real call-to-ledger transaction works end-to-end.
+
+---
+
+### Priority 2 — Real Africa's Talking USSD
 
 Build and verify:
 
@@ -373,7 +402,7 @@ Build and verify:
 
 ---
 
-### Priority 2 — Real Africa's Talking SMS
+### Priority 3 — Real Africa's Talking SMS
 
 Connect the existing notification layer to the AT SMS API.
 
@@ -389,26 +418,41 @@ Verify:
 
 ---
 
-### Priority 3 — Voice Test Number
+### Priority 4 — Cross-channel integration
 
-Once AT approves the Voice Test Number:
+Once individual channels work, run the entire scenario as one system:
 
-1. Configure the assigned number.
-2. Point the Voice callback to the public application.
-3. Make a real call.
-4. Record a transaction.
-5. Verify recording callback.
-6. Verify transcription.
-7. Verify parsed transaction.
-8. Verify database write.
-9. Verify SMS confirmation.
-10. Verify spoken confirmation.
+```text
+USSD purchase
+     ↓
+USSD sale
+     ↓
+Ledger / stock update
+     ↓
+Automated SMS alert
+     ↓
+USSD debt entry
+     ↓
+SMS debt reminder
+     ↓
+Simulated invoice event
+     ↓
+SMS invoice alert
+     ↓
+USSD accept/dispute
+     ↓
+EOD SMS
+     ↓
+Voice transaction
+     ↓
+Ledger confirmation
+```
 
-**Acceptance condition:** one complete real call-to-ledger transaction works end-to-end.
+This is the point where we prove that Fahari is a **telecommunications product**, rather than three disconnected demos.
 
 ---
 
-### Priority 4 — Demo hardening
+### Priority 5 — Demo hardening
 
 After telecom integration works, stop adding unnecessary features.
 
@@ -423,6 +467,8 @@ Focus on:
 - realistic demo data
 - clear error messages
 - repeatable setup instructions
+- safe handling of telecom credentials
+- protecting test numbers from accidental spam
 
 The goal is not maximum feature count.
 
@@ -430,7 +476,7 @@ The goal is **a reliable 3-minute demonstration**.
 
 ---
 
-### Priority 5 — Demo rehearsal
+### Priority 6 — Demo rehearsal
 
 The final demo should prove one coherent story:
 
@@ -517,7 +563,7 @@ The seller receives a compact SMS summary containing:
 
 ### Accessibility beat
 
-The seller calls the Voice number and says what she sold.
+The seller calls the Voice Test Number and says what she sold.
 
 The system:
 
@@ -584,16 +630,25 @@ A judge should be able to understand Fahari from one transaction.
 
 ### Next session
 
-**1. Africa's Talking USSD**
+**1. Voice Test Number — use the two-week window**
+- configure the number
+- make the first real call
+- capture callback behaviour
+- test one simple transaction
+- verify ledger write
+- verify confirmation
+- document any AT-specific behaviour
+
+**2. Africa's Talking USSD**
 - connect callback
 - test session
 - test real phone flow
 
-**2. Africa's Talking SMS**
+**3. Africa's Talking SMS**
 - connect sender
 - test notification delivery
 
-**3. Run the full integrated scenario**
+**4. Run the full integrated scenario**
 - purchase
 - sale
 - stock
@@ -602,9 +657,7 @@ A judge should be able to understand Fahari from one transaction.
 - invoice
 - USSD response
 - EOD summary
-
-**4. Voice Test Number**
-- only when approved
+- Voice
 
 **5. Freeze core architecture**
 - avoid unnecessary refactors
@@ -631,7 +684,7 @@ Fahari Ledger is ready for the final demo when all of the following are true:
 - [ ] Invoice notification works
 - [ ] Invoice accept/dispute works
 - [ ] End-of-day summary works
-- [ ] Voice Test Number works, if approved in time
+- [ ] Voice Test Number completes a real end-to-end transaction
 - [ ] Voice fallback works when ASR fails
 - [ ] Demo seed is deterministic
 - [ ] Demo can be reset quickly
@@ -656,14 +709,14 @@ Fahari Ledger is ready for the final demo when all of the following are true:
 **Public callback setup:** ✅  
 **Deterministic demo seed:** ✅  
 **Automated tests:** ✅ 30 passing  
-**AT Voice Test Number request:** ⏳ Awaiting approval
+**AT Voice Test Number:** ✅ Received — two-week testing window
 
 ### Next
 
+**Real AT Voice E2E:** 🔥 NOW  
 **AT USSD integration:** 🔜  
 **AT SMS integration:** 🔜  
-**Real telecom end-to-end testing:** 🔜  
-**Voice Test Number integration:** ⏳  
+**Cross-channel E2E testing:** 🔜  
 **Demo hardening:** 🔜  
 **Final rehearsal:** 🔜
 
@@ -680,9 +733,9 @@ Fahari Ledger is ready for the final demo when all of the following are true:
 
 ## 14. Change log
 
-### 18 September 2026
+### 18 September 2026 — Core build milestone
 
-Completed the first major core build milestone:
+Completed:
 
 - strengthened ledger/business logic
 - hardened USSD state machine
@@ -699,4 +752,11 @@ Completed the first major core build milestone:
 - verified the Docker test suite: **30 passed**
 - merged the core build into `main`
 
-**Next milestone:** connect the existing application to real Africa's Talking USSD and SMS services, then perform end-to-end telecom testing.
+### 18 September 2026 — Telecom testing unlocked
+
+- Africa's Talking provided a **Voice Test Number**
+- Testing window: **two weeks**
+- Real Voice integration testing is now the immediate priority
+- The previous "awaiting approval" status is superseded
+
+**Next milestone:** use the Voice Test Number for a real call-to-ledger transaction, then connect and verify USSD and SMS.
