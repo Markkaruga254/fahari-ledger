@@ -45,7 +45,7 @@ class Sale(Base):
     unit = Column(String, default="kg")
     price = Column(Float, nullable=False)  # total price, KES
     source = Column(String, default="ussd")  # ussd | voice
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="sales")
 
@@ -60,7 +60,7 @@ class Debt(Base):
     amount = Column(Float, nullable=False)
     settled = Column(Boolean, default=False)
     notify_customer = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="debts")
 
@@ -81,6 +81,6 @@ class Invoice(Base):
     amount = Column(Float, nullable=False)
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.pending)
     deadline = Column(DateTime, nullable=False)  # 30 days from creation, per eTIMS buyer-initiated rule
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="invoices")
