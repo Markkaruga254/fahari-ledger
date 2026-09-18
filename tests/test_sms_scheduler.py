@@ -19,7 +19,7 @@ def test_overstock_alert_is_sent_once_per_vendor_item_day(monkeypatch):
 
     sent = []
     monkeypatch.setattr(
-        scheduler,
+        scheduler.notifications,
         "send_sms",
         lambda to, message: sent.append((to, message)),
     )
