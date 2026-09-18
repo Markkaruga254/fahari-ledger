@@ -1,7 +1,7 @@
 from html import escape
 
 from fastapi import APIRouter, Form
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import Response
 
 from app.config import settings
 from app.db.session import SessionLocal
@@ -18,17 +18,18 @@ def _recording_callback_url() -> str:
     return f"{base}/voice/recording" if base else "/voice/recording"
 
 
-def _voice_xml(message: str) -> str:
-    return (
+def _voice_xml(message: str) -> Response:
+    body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f"<Response><Say>{escape(message)}</Say></Response>"
     )
+    return Response(content=body, media_type="application/xml")
 
 
-@router.post("/voice", response_class=PlainTextResponse)
+@router.post("/voice", response_class=Response)
 async def voice_callback(phoneNumber: str = Form(...), isActive: str = Form("1")):
     callback_url = escape(_recording_callback_url(), quote=True)
-    return (
+    body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Response>"
         '<Say voice="woman">Tell me what you sold. For example, kilo mbili za nyanya, bei mia moja.</Say>'
@@ -36,9 +37,10 @@ async def voice_callback(phoneNumber: str = Form(...), isActive: str = Form("1")
         f'callbackUrl="{callback_url}"/>'
         "</Response>"
     )
+    return Response(content=body, media_type="application/xml")
 
 
-@router.post("/voice/recording", response_class=PlainTextResponse)
+@router.post("/voice/recording", response_class=Response)
 async def voice_recording_callback(phoneNumber: str = Form(...), recordingUrl: str = Form(...)):
     transcript = transcribe(recordingUrl)
     if not transcript:
