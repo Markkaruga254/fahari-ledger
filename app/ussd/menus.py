@@ -9,8 +9,7 @@ from app.utils.time import utc_now
 
 from app.db.session import SessionLocal
 from app.services import ledger
-from app.sms import templates
-from app.sms.sender import send_sms
+from app.services import notifications
 from app.ussd.session import get_session, clear_session
 
 
@@ -198,9 +197,10 @@ def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
             notify,
         )
         if debt.notify_customer:
-            send_sms(
+            notifications.send_debt_reminder(
                 debt.customer_phone,
-                templates.debt_reminder("the seller", debt.amount, debt.item),
+                debt.amount,
+                debt.item,
             )
         session["state"] = "END"
         return f"END Logged: KES {data['amount']:.0f} owed by {data['customer_phone']}.", True
