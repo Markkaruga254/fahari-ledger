@@ -6,10 +6,11 @@ what was bought this morning is still unsold, nudge the vendor to discount.
 from datetime import datetime
 
 from app.config import settings
+from app.utils.time import utc_now
 
 
 def should_nudge(purchased_qty: float, sold_qty: float, now: datetime = None) -> bool:
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     if purchased_qty <= 0:
         return False
     remaining_ratio = max(purchased_qty - sold_qty, 0) / purchased_qty
