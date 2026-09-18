@@ -137,6 +137,17 @@ def test_invoice_flow_accepts_pending_invoice():
         db.close()
 
 
+def test_invoice_menu_ends_session_when_no_pending_invoices():
+    step("ussd-invoice-empty", "")
+    response, ended = step("ussd-invoice-empty", "5")
+    assert ended is True
+    assert response == "END No pending invoices."
+
+    response, ended = step("ussd-invoice-empty", "5")
+    assert ended is True
+    assert response == "END No pending invoices."
+
+
 def test_check_today_uses_phone_from_handler():
     from app.services import ledger
 
