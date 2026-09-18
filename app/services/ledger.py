@@ -153,7 +153,7 @@ def create_invoice(
         buyer_name=buyer_name,
         amount=amount,
         status=InvoiceStatus.pending,
-        deadline=datetime.utcnow() + timedelta(days=deadline_days),
+        deadline=utc_now() + timedelta(days=deadline_days),
     )
     db.add(invoice)
     db.commit()
@@ -167,7 +167,7 @@ def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
         raise ValueError("Invoice not found")
     if invoice.status != InvoiceStatus.pending:
         raise ValueError("Invoice is no longer pending")
-    if datetime.utcnow() > invoice.deadline:
+    if utc_now() > invoice.deadline:
         invoice.status = InvoiceStatus.auto_rejected
         db.commit()
         raise ValueError("Invoice deadline has passed")
