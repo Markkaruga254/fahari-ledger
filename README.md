@@ -10,8 +10,8 @@ for the exact USSD screens.
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and fill in your Africa's Talking sandbox
-   credentials (username `sandbox` + API key from your AT dashboard).
+1. Copy `.env.example` to `.env` and fill in your Africa's Talking
+   credentials.
 2. Start everything:
 
    ```bash
@@ -38,13 +38,35 @@ for the exact USSD screens.
    docker compose exec app python -m scripts.seed_demo_data --reset
    ```
 
-4. Expose your local server to Africa's Talking with ngrok (or similar) and
-   set the callback URLs in your AT sandbox app:
-   - USSD callback: `https://<ngrok-url>/ussd`
-   - SMS delivery reports (optional): `https://<ngrok-url>/sms/status`
-   - Voice callback: `https://<ngrok-url>/voice`
+## Africa's Talking integration
 
-5. Dial your sandbox USSD code from the AT simulator to walk the menu tree.
+Africa's Talking Voice callbacks require a publicly reachable web endpoint and
+the Voice API expects your application to return XML instructions for the call.
+For local development, expose port 8000 through an HTTPS tunnel and set
+`PUBLIC_BASE_URL` to the resulting URL.
+
+Configure your AT app with:
+
+- USSD callback: `https://<public-host>/ussd`
+- Voice callback: `https://<public-host>/voice`
+- SMS delivery reports: `https://<public-host>/sms/status` (optional, if enabled)
+
+**Important:** Africa's Talking currently states that its Voice Sandbox is not
+operational. For actual Voice testing, request a **Voice Test Number** from
+the AT dashboard rather than relying on the sandbox simulator.
+
+The voice flow is:
+
+1. AT POSTs the incoming call to `/voice`.
+2. Fahari returns XML that speaks a prompt and starts a `<Record>` action.
+3. AT posts the recording callback to `/voice/recording`.
+4. Fahari sends the recording to the configured ASR provider.
+5. The controlled parser extracts item, quantity, and price.
+6. The sale is persisted with `source="voice"`.
+7. Fahari sends an SMS confirmation.
+8. Fahari returns XML confirming the sale to the caller.
+
+Africa's Talking documents `.wav` and `.mp3` as supported recording formats.
 
 ## Rehearsal helper
 

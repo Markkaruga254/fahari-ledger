@@ -181,7 +181,7 @@ def pending_invoices(db: Session, vendor_id: int):
     expired = db.query(Invoice).filter(
         Invoice.vendor_id == vendor_id,
         Invoice.status == InvoiceStatus.pending,
-        Invoice.deadline < datetime.utcnow(),
+        Invoice.deadline < utc_now(),
     ).all()
     if expired:
         for invoice in expired:
