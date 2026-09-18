@@ -89,7 +89,11 @@ def _route_main_menu(session, choice: str) -> tuple[str, bool]:
             db.close()
     if choice == "5":
         session["state"] = "INVOICES_MENU"
-        return _render_invoices_menu(session.get("phone_number", "")), False
+        response = _render_invoices_menu(session.get("phone_number", ""))
+        if response.startswith("END"):
+            session["state"] = "END"
+            return response, True
+        return response, False
 
     session["state"] = "END"
     return "END Invalid choice. Please dial again.", True
