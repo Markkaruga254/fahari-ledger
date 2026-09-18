@@ -121,6 +121,7 @@ def test_invoice_flow_accepts_pending_invoice():
     response, ended = step("ussd-invoice", "5")
     assert ended is False
     assert "Nyali Hotel Supplies" in response
+    assert "29d left" in response
 
     response, ended = step("ussd-invoice", f"5*{invoice_id}")
     assert ended is False
@@ -133,6 +134,42 @@ def test_invoice_flow_accepts_pending_invoice():
     db = menus.SessionLocal()
     try:
         assert db.query(Invoice).one().status.value == "accepted"
+    finally:
+        db.close()
+
+
+def test_invoice_menu_ends_when_no_pending():
+    step("ussd-no-invoice", "")
+    response, ended = step("ussd-no-invoice", "5")
+
+    assert ended is True
+    assert response == "END No pending invoices."
+
+
+def test_invoice_flow_cannot_update_another_vendors_invoice():
+    from app.services import ledger
+
+    other_phone = "+254799999999"
+    db = menus.SessionLocal()
+    own_invoice = ledger.create_invoice(db, PHONE, "Own Buyer", 4200, 29)
+    invoice = ledger.create_invoice(db, other_phone, "Other Buyer", 3500, 29)
+    own_invoice_id = own_invoice.id
+    other_invoice_id = invoice.id
+    db.close()
+
+    step("ussd-invoice-scope", "")
+    response, ended = step("ussd-invoice-scope", f"5*{own_invoice_id}")
+    assert ended is False
+    assert "Accept" in response
+
+    response, ended = step("ussd-invoice-scope", f"5*{other_invoice_id}*1")
+    assert ended is True
+    assert response == "END Invoice not found"
+
+    db = menus.SessionLocal()
+    try:
+        refreshed = db.query(Invoice).filter_by(id=other_invoice_id).one()
+        assert refreshed.status.value == "pending"
     finally:
         db.close()
 

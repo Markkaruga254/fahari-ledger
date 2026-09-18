@@ -45,8 +45,11 @@ def send_eod_summaries_job():
         for vendor in db.query(Vendor).all():
             summary = ledger.today_summary(db, vendor.id)
             pending = len(ledger.pending_invoices(db, vendor.id))
+            has_stock_activity = any(qty > 0 for qty in summary["items_purchased"].values()) or any(
+                qty > 0 for qty in summary["items_remaining"].values()
+            )
 
-            if summary["sale_count"] == 0 and pending == 0:
+            if summary["sale_count"] == 0 and pending == 0 and not has_stock_activity:
                 continue
 
             msg = templates.end_of_day_summary(

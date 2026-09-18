@@ -88,8 +88,9 @@ def _route_main_menu(session, choice: str) -> tuple[str, bool]:
         finally:
             db.close()
     if choice == "5":
-        session["state"] = "INVOICES_MENU"
-        return _render_invoices_menu(session.get("phone_number", "")), False
+        response, ended = _render_invoices_menu(session.get("phone_number", ""))
+        session["state"] = "END" if ended else "INVOICES_MENU"
+        return response, ended
 
     session["state"] = "END"
     return "END Invalid choice. Please dial again.", True
@@ -202,20 +203,20 @@ def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
     return "END Something went wrong. Please dial again.", True
 
 
-def _render_invoices_menu(phone_number: str) -> str:
+def _render_invoices_menu(phone_number: str) -> tuple[str, bool]:
     db = SessionLocal()
     try:
         vendor = ledger.get_or_create_vendor(db, phone_number)
         pending = ledger.pending_invoices(db, vendor.id)
         if not pending:
-            return "END No pending invoices."
+            return "END No pending invoices.", True
 
         lines = ["CON Pending invoices:"]
         for inv in pending[:3]:
-            days_left = max((inv.deadline - datetime.utcnow()).days, 0)
+            days_left = max((inv.deadline.date() - datetime.utcnow().date()).days, 0)
             lines.append(f"{inv.id}. {inv.buyer_name} KES {inv.amount:.0f} ({days_left}d left)")
         lines.append("Enter invoice number")
-        return "\n".join(lines)
+        return "\n".join(lines), False
     finally:
         db.close()
 
@@ -235,7 +236,13 @@ def _invoices_menu(db, session, phone_number, value) -> tuple[str, bool]:
         return "CON Choose 1 for Accept or 2 for Dispute", False
 
     try:
-        invoice = ledger.respond_to_invoice(db, data["invoice_id"], value == "1")
+        vendor = ledger.get_or_create_vendor(db, phone_number)
+        invoice = ledger.respond_to_invoice(
+            db,
+            data["invoice_id"],
+            value == "1",
+            vendor_id=vendor.id,
+        )
     except ValueError as exc:
         session["state"] = "END"
         return f"END {exc}", True

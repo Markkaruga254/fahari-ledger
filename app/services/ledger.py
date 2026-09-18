@@ -159,8 +159,12 @@ def create_invoice(
     return invoice
 
 
-def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
-    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+def respond_to_invoice(db: Session, invoice_id: int, accept: bool, vendor_id: int | None = None) -> Invoice:
+    filters = [Invoice.id == invoice_id]
+    if vendor_id is not None:
+        filters.append(Invoice.vendor_id == vendor_id)
+
+    invoice = db.query(Invoice).filter(*filters).first()
     if invoice is None:
         raise ValueError("Invoice not found")
     if invoice.status != InvoiceStatus.pending:
@@ -176,6 +180,17 @@ def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
 
 
 def pending_invoices(db: Session, vendor_id: int):
+    now = datetime.utcnow()
+    expired = db.query(Invoice).filter(
+        Invoice.vendor_id == vendor_id,
+        Invoice.status == InvoiceStatus.pending,
+        Invoice.deadline < now,
+    ).all()
+    for invoice in expired:
+        invoice.status = InvoiceStatus.auto_rejected
+    if expired:
+        db.commit()
+
     return db.query(Invoice).filter(
         Invoice.vendor_id == vendor_id,
         Invoice.status == InvoiceStatus.pending,

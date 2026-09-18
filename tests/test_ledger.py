@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.db.models import Invoice
 from app.db.session import Base
 from app.services import ledger
 
@@ -49,18 +50,32 @@ def test_invoice_lifecycle(db):
     invoice = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=29)
     assert invoice.status.value == "pending"
 
-    updated = ledger.respond_to_invoice(db, invoice.id, accept=True)
+    vendor = ledger.get_or_create_vendor(db, phone)
+    updated = ledger.respond_to_invoice(db, invoice.id, accept=True, vendor_id=vendor.id)
     assert updated.status.value == "accepted"
 
 
 def test_expired_invoice_cannot_be_accepted(db):
     phone = "+254700000004"
     invoice = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=-1)
+    vendor = ledger.get_or_create_vendor(db, phone)
 
     with pytest.raises(ValueError, match="deadline"):
-        ledger.respond_to_invoice(db, invoice.id, accept=True)
+        ledger.respond_to_invoice(db, invoice.id, accept=True, vendor_id=vendor.id)
 
     assert invoice.status.value == "auto_rejected"
+
+
+def test_pending_invoices_auto_rejects_expired(db):
+    phone = "+254700000006"
+    vendor = ledger.get_or_create_vendor(db, phone)
+    ledger.create_invoice(db, phone, "Expired Buyer", 1000, deadline_days=-1)
+
+    pending = ledger.pending_invoices(db, vendor.id)
+
+    assert pending == []
+    statuses = [invoice.status.value for invoice in db.query(Invoice).all()]
+    assert statuses == ["auto_rejected"]
 
 
 def test_stock_never_goes_negative(db):
