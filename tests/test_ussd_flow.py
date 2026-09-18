@@ -137,6 +137,37 @@ def test_invoice_flow_accepts_pending_invoice():
         db.close()
 
 
+def test_invoice_flow_cannot_respond_to_other_vendor_invoice():
+    from app.services import ledger
+
+    invoice_owner_phone = "+254700000010"
+    other_vendor_phone = "+254700000011"
+    db = menus.SessionLocal()
+    invoice = ledger.create_invoice(db, invoice_owner_phone, "Nyali Hotel Supplies", 4200, 29)
+    invoice_id = invoice.id
+    db.close()
+
+    menus.handle("ussd-invoice-other", other_vendor_phone, "")
+    response, ended = menus.handle("ussd-invoice-other", other_vendor_phone, "5")
+    assert ended is False
+    assert response == "END No pending invoices."
+
+    response, ended = menus.handle("ussd-invoice-other", other_vendor_phone, f"5*{invoice_id}")
+    assert ended is False
+    assert "Accept" in response
+
+    response, ended = menus.handle("ussd-invoice-other", other_vendor_phone, f"5*{invoice_id}*1")
+    assert ended is True
+    assert response == "END Invoice not found"
+
+    db = menus.SessionLocal()
+    try:
+        stored = db.query(Invoice).filter_by(id=invoice_id).one()
+        assert stored.status.value == "pending"
+    finally:
+        db.close()
+
+
 def test_check_today_uses_phone_from_handler():
     from app.services import ledger
 

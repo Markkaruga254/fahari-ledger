@@ -235,7 +235,8 @@ def _invoices_menu(db, session, phone_number, value) -> tuple[str, bool]:
         return "CON Choose 1 for Accept or 2 for Dispute", False
 
     try:
-        invoice = ledger.respond_to_invoice(db, data["invoice_id"], value == "1")
+        vendor = ledger.get_or_create_vendor(db, phone_number)
+        invoice = ledger.respond_to_invoice(db, vendor.id, data["invoice_id"], value == "1")
     except ValueError as exc:
         session["state"] = "END"
         return f"END {exc}", True

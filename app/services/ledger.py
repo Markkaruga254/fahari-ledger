@@ -159,8 +159,11 @@ def create_invoice(
     return invoice
 
 
-def respond_to_invoice(db: Session, invoice_id: int, accept: bool) -> Invoice:
-    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+def respond_to_invoice(db: Session, vendor_id: int, invoice_id: int, accept: bool) -> Invoice:
+    invoice = db.query(Invoice).filter(
+        Invoice.id == invoice_id,
+        Invoice.vendor_id == vendor_id,
+    ).first()
     if invoice is None:
         raise ValueError("Invoice not found")
     if invoice.status != InvoiceStatus.pending:

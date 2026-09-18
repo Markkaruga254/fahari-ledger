@@ -49,18 +49,30 @@ def test_invoice_lifecycle(db):
     invoice = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=29)
     assert invoice.status.value == "pending"
 
-    updated = ledger.respond_to_invoice(db, invoice.id, accept=True)
+    vendor = ledger.get_or_create_vendor(db, phone)
+    updated = ledger.respond_to_invoice(db, vendor.id, invoice.id, accept=True)
     assert updated.status.value == "accepted"
 
 
 def test_expired_invoice_cannot_be_accepted(db):
     phone = "+254700000004"
     invoice = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=-1)
+    vendor = ledger.get_or_create_vendor(db, phone)
 
     with pytest.raises(ValueError, match="deadline"):
-        ledger.respond_to_invoice(db, invoice.id, accept=True)
+        ledger.respond_to_invoice(db, vendor.id, invoice.id, accept=True)
 
     assert invoice.status.value == "auto_rejected"
+
+
+def test_invoice_response_is_scoped_to_vendor(db):
+    vendor_one_phone = "+254700000010"
+    vendor_two_phone = "+254700000011"
+    invoice = ledger.create_invoice(db, vendor_one_phone, "Nyali Hotel", 4200, deadline_days=29)
+    vendor_two = ledger.get_or_create_vendor(db, vendor_two_phone)
+
+    with pytest.raises(ValueError, match="not found"):
+        ledger.respond_to_invoice(db, vendor_two.id, invoice.id, accept=True)
 
 
 def test_stock_never_goes_negative(db):
