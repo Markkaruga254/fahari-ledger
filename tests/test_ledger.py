@@ -63,6 +63,19 @@ def test_expired_invoice_cannot_be_accepted(db):
     assert invoice.status.value == "auto_rejected"
 
 
+def test_pending_invoices_auto_rejects_expired_on_list(db):
+    phone = "+254700000006"
+    expired = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=-1)
+    valid = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=2)
+
+    vendor = ledger.get_or_create_vendor(db, phone)
+    pending = ledger.pending_invoices(db, vendor.id)
+
+    db.refresh(expired)
+    assert expired.status.value == "auto_rejected"
+    assert [invoice.id for invoice in pending] == [valid.id]
+
+
 def test_stock_never_goes_negative(db):
     phone = "+254700000005"
     ledger.log_purchase(db, phone, "tilapia", 5, 1500)
