@@ -18,7 +18,7 @@ PHONE = "+254700000009"
 
 
 def setup_function():
-    menus.send_sms = lambda *args, **kwargs: {"ok": True}
+    menus.notifications.send_sms = lambda *args, **kwargs: {"ok": True}
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -35,6 +35,7 @@ def setup_function():
 
 def teardown_function():
     menus.SessionLocal = None
+    menus.notifications.send_sms = lambda *args, **kwargs: {"ok": True}
     setup_function.db.dispose()
 
 
@@ -97,7 +98,7 @@ def test_debt_flow_records_and_requires_notification_choice():
     assert "Choose 1 for Yes or 2 for No" in response
 
     sent = []
-    menus.send_sms = lambda to, message: sent.append((to, message))
+    menus.notifications.send_sms = lambda to, message: sent.append((to, message))
 
     response, ended = step("ussd-debt", "3*+254711111111*tilapia*2000*1")
     assert ended is True
