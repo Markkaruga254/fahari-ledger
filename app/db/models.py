@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utc_now
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship
@@ -13,7 +13,7 @@ class Vendor(Base):
     id = Column(Integer, primary_key=True)
     phone_number = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     purchases = relationship("Purchase", back_populates="vendor")
     sales = relationship("Sale", back_populates="vendor")
