@@ -4,6 +4,8 @@ This is the durable business-event layer underneath USSD, SMS and Voice.
 """
 from datetime import datetime, timedelta
 
+from app.utils.time import utc_now
+
 from sqlalchemy.orm import Session
 
 from app.db.models import Vendor, Purchase, Sale, Debt, Invoice, InvoiceStatus
@@ -95,7 +97,7 @@ def stock_remaining(db: Session, vendor_id: int, item: str, since: datetime) -> 
 
 
 def today_summary(db: Session, vendor_id: int) -> dict:
-    since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    since = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     sales = db.query(Sale).filter(
         Sale.vendor_id == vendor_id,
