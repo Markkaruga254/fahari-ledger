@@ -1,6 +1,9 @@
 """
-The USSD menu tree. See docs/ussd-menu-tree.md for the screen-by-screen spec
-this implements. Every handler returns (response_text, end_session: bool).
+USSD menu tree for the competition demo.
+
+Design principle: keep the core actions short and predictable. The business
+event is committed before the session ends; telecom notifications remain
+outside the core ledger path.
 """
 from app.db.session import SessionLocal
 from app.services import ledger
@@ -34,7 +37,6 @@ def handle(session_id: str, phone_number: str, text: str) -> tuple[str, bool]:
         if state == "INVOICES_MENU":
             return _invoices_menu(db, session, phone_number, last_input)
 
-        # Fallback — unknown state, reset
         session["state"] = "MAIN_MENU"
         return _main_menu(), False
     finally:
@@ -57,24 +59,28 @@ def _main_menu() -> str:
 def _route_main_menu(session, choice: str) -> tuple[str, bool]:
     if choice == "1":
         session["state"] = "PURCHASE_ITEM"
-        return "CON Enter item name (e.g. tomato)", False
+        return "CON Enter item (e.g. tomato)", False
     if choice == "2":
         session["state"] = "SALE_ITEM"
-        return "CON Enter item name (e.g. tomato)", False
+        return "CON Enter item (e.g. tomato)", False
     if choice == "3":
         session["state"] = "DEBT_CUSTOMER"
         return "CON Enter customer phone number", False
     if choice == "4":
-        # handled inline, no DB session held open across the loop for this simple case
         db = SessionLocal()
         try:
             vendor = ledger.get_or_create_vendor(db, session.get("phone_number", ""))
             summary = ledger.today_summary(db, vendor.id)
             session["state"] = "END"
+            remaining = ", ".join(
+                f"{item}: {qty:g}kg"
+                for item, qty in summary["items_remaining"].items()
+                if qty > 0
+            ) or "none"
             return (
                 f"END Today: KES {summary['total_sales']:.0f} sold, "
-                f"KES {summary['total_owed_to_vendor']:.0f} owed to you, "
-                f"{summary['sale_count']} sales logged."
+                f"KES {summary['total_owed_to_vendor']:.0f} owed, "
+                f"stock {remaining}."
             ), True
         finally:
             db.close()
@@ -88,65 +94,107 @@ def _route_main_menu(session, choice: str) -> tuple[str, bool]:
 
 def _purchase_flow(db, session, phone_number, value) -> tuple[str, bool]:
     data = session["data"]
+
     if session["state"] == "PURCHASE_ITEM":
-        data["item"] = value.strip().lower()
+        item = value.strip().lower()
+        if not item:
+            return "CON Enter a valid item", False
+        data["item"] = item
         session["state"] = "PURCHASE_QTY"
         return "CON Enter quantity in kg (e.g. 10)", False
+
     if session["state"] == "PURCHASE_QTY":
-        data["quantity"] = _to_float(value)
+        quantity = _positive_float(value)
+        if quantity is None:
+            return "CON Enter a quantity greater than 0", False
+        data["quantity"] = quantity
         session["state"] = "PURCHASE_COST"
         return "CON Enter total cost in KES (e.g. 500)", False
+
     if session["state"] == "PURCHASE_COST":
-        data["cost"] = _to_float(value)
+        cost = _positive_float(value)
+        if cost is None:
+            return "CON Enter a cost greater than 0", False
+        data["cost"] = cost
         ledger.log_purchase(db, phone_number, data["item"], data["quantity"], data["cost"])
         session["state"] = "END"
-        return (
-            f"END Logged: bought {data['quantity']}kg {data['item']} for KES {data['cost']:.0f}."
-        ), True
+        return f"END Logged: bought {data['quantity']:g}kg {data['item']} for KES {data['cost']:.0f}.", True
+
     session["state"] = "END"
     return "END Something went wrong. Please dial again.", True
 
 
 def _sale_flow(db, session, phone_number, value) -> tuple[str, bool]:
     data = session["data"]
+
     if session["state"] == "SALE_ITEM":
-        data["item"] = value.strip().lower()
+        item = value.strip().lower()
+        if not item:
+            return "CON Enter a valid item", False
+        data["item"] = item
         session["state"] = "SALE_QTY"
         return "CON Enter quantity in kg (e.g. 2)", False
+
     if session["state"] == "SALE_QTY":
-        data["quantity"] = _to_float(value)
+        quantity = _positive_float(value)
+        if quantity is None:
+            return "CON Enter a quantity greater than 0", False
+        data["quantity"] = quantity
         session["state"] = "SALE_PRICE"
         return "CON Enter total price in KES (e.g. 200)", False
+
     if session["state"] == "SALE_PRICE":
-        data["price"] = _to_float(value)
+        price = _positive_float(value)
+        if price is None:
+            return "CON Enter a price greater than 0", False
+        data["price"] = price
         ledger.log_sale(db, phone_number, data["item"], data["quantity"], data["price"])
         session["state"] = "END"
-        return (
-            f"END Logged: sold {data['quantity']}kg {data['item']} for KES {data['price']:.0f}."
-        ), True
+        return f"END Logged: sold {data['quantity']:g}kg {data['item']} for KES {data['price']:.0f}.", True
+
     session["state"] = "END"
     return "END Something went wrong. Please dial again.", True
 
 
 def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
     data = session["data"]
+
     if session["state"] == "DEBT_CUSTOMER":
-        data["customer_phone"] = value.strip()
+        customer = value.strip()
+        if not customer:
+            return "CON Enter customer phone number", False
+        data["customer_phone"] = customer
         session["state"] = "DEBT_ITEM"
         return "CON Enter item (or 0 to skip)", False
+
     if session["state"] == "DEBT_ITEM":
         data["item"] = None if value.strip() == "0" else value.strip()
         session["state"] = "DEBT_AMOUNT"
         return "CON Enter amount owed in KES", False
+
     if session["state"] == "DEBT_AMOUNT":
-        data["amount"] = _to_float(value)
+        amount = _positive_float(value)
+        if amount is None:
+            return "CON Enter an amount greater than 0", False
+        data["amount"] = amount
         session["state"] = "DEBT_NOTIFY"
-        return "CON Notify the customer by SMS? 1. Yes 2. No", False
+        return "CON Notify customer by SMS? 1. Yes 2. No", False
+
     if session["state"] == "DEBT_NOTIFY":
+        if value not in {"1", "2"}:
+            return "CON Choose 1 for Yes or 2 for No", False
         notify = value == "1"
-        ledger.log_debt(db, phone_number, data["customer_phone"], data.get("item"), data["amount"], notify)
+        ledger.log_debt(
+            db,
+            phone_number,
+            data["customer_phone"],
+            data.get("item"),
+            data["amount"],
+            notify,
+        )
         session["state"] = "END"
         return f"END Logged: KES {data['amount']:.0f} owed by {data['customer_phone']}.", True
+
     session["state"] = "END"
     return "END Something went wrong. Please dial again.", True
 
@@ -158,11 +206,12 @@ def _render_invoices_menu(phone_number: str) -> str:
         pending = ledger.pending_invoices(db, vendor.id)
         if not pending:
             return "END No pending invoices."
-        lines = [f"CON Pending invoices:"]
+
+        lines = ["CON Pending invoices:"]
         for inv in pending[:3]:
-            days_left = max((inv.deadline - inv.created_at).days, 0)
+            days_left = max((inv.deadline - __import__("datetime").datetime.utcnow()).days, 0)
             lines.append(f"{inv.id}. {inv.buyer_name} KES {inv.amount:.0f} ({days_left}d left)")
-        lines.append("Reply with invoice number, then 1=accept 2=dispute")
+        lines.append("Enter invoice number")
         return "\n".join(lines)
     finally:
         db.close()
@@ -170,22 +219,32 @@ def _render_invoices_menu(phone_number: str) -> str:
 
 def _invoices_menu(db, session, phone_number, value) -> tuple[str, bool]:
     data = session["data"]
+
     if "invoice_id" not in data:
         try:
-            data["invoice_id"] = int(value)
+            invoice_id = int(value)
         except ValueError:
-            session["state"] = "END"
-            return "END Invalid invoice number.", True
+            return "CON Enter a valid invoice number", False
+        data["invoice_id"] = invoice_id
         return "CON 1. Accept 2. Dispute", False
-    accept = value == "1"
-    ledger.respond_to_invoice(db, data["invoice_id"], accept)
+
+    if value not in {"1", "2"}:
+        return "CON Choose 1 for Accept or 2 for Dispute", False
+
+    try:
+        invoice = ledger.respond_to_invoice(db, data["invoice_id"], value == "1")
+    except ValueError as exc:
+        session["state"] = "END"
+        return f"END {exc}", True
+
     session["state"] = "END"
-    verdict = "accepted" if accept else "disputed"
+    verdict = "accepted" if invoice.status.value == "accepted" else "disputed"
     return f"END Invoice {verdict}.", True
 
 
-def _to_float(value: str) -> float:
+def _positive_float(value: str) -> float | None:
     try:
-        return float(value.strip())
-    except ValueError:
-        return 0.0
+        number = float(value.strip())
+    except (ValueError, AttributeError):
+        return None
+    return number if number > 0 else None
