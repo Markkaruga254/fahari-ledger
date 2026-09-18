@@ -30,7 +30,7 @@ class Purchase(Base):
     quantity = Column(Float, nullable=False)
     unit = Column(String, default="kg")
     cost = Column(Float, nullable=False)  # total cost, KES
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     vendor = relationship("Vendor", back_populates="purchases")
 
