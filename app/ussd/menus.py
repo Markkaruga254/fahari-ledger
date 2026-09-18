@@ -5,6 +5,8 @@ Design principle: keep the core actions short and predictable. The business
 event is committed before the session ends; telecom notifications remain
 outside the core ledger path.
 """
+from math import ceil
+
 from app.utils.time import utc_now
 
 from app.db.session import SessionLocal
@@ -219,7 +221,7 @@ def _render_invoices_menu(phone_number: str) -> str:
 
         lines = ["CON Pending invoices:"]
         for inv in pending[:3]:
-            days_left = max((inv.deadline - utc_now()).days, 0)
+            days_left = max(ceil((inv.deadline - utc_now()).total_seconds() / 86400), 0)
             lines.append(f"{inv.id}. {inv.buyer_name} KES {inv.amount:.0f} ({days_left}d left)")
         lines.append("Enter invoice number")
         return "\n".join(lines)
