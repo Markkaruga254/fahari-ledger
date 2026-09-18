@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     asr_provider: str = "whisper"
     asr_api_key: str = ""
+    public_base_url: str = ""
 
     overstock_hour_threshold: int = 15  # 24h clock, e.g. 15 = 3pm
     overstock_stock_ratio: float = 0.4  # nudge if > 40% of morning stock unsold by the hour above
