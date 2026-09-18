@@ -10,9 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
 from app.db.models import Vendor
-from app.services import ledger, overstock
-from app.sms import templates
-from app.sms.sender import send_sms
+from app.services import ledger, notifications, overstock
 
 _scheduler = BackgroundScheduler()
 
@@ -43,9 +41,10 @@ def check_overstock_job():
                     continue
 
                 if overstock.should_nudge(purchased_qty, sold_qty):
-                    send_sms(
+                    notifications.send_overstock_alert(
                         vendor.phone_number,
-                        templates.overstock_nudge(item, remaining),
+                        item,
+                        remaining,
                     )
                     _sent_overstock_alerts.add(alert_key)
     finally:
@@ -62,14 +61,14 @@ def send_eod_summaries_job():
             if summary["sale_count"] == 0 and pending == 0:
                 continue
 
-            msg = templates.end_of_day_summary(
+            notifications.send_end_of_day_summary(
+                vendor.phone_number,
                 summary["total_sales"],
                 summary["total_owed_to_vendor"],
                 summary["sale_count"],
                 pending,
                 summary["items_remaining"],
             )
-            send_sms(vendor.phone_number, msg)
     finally:
         db.close()
 
