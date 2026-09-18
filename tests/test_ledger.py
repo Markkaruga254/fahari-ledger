@@ -18,7 +18,7 @@ def db():
     session.close()
 
 
-def test_log_sale_and_summary(db):
+def test_log_sale_and_summary_includes_remaining_stock(db):
     phone = "+254700000001"
     ledger.log_purchase(db, phone, "tomato", 10, 250)
     ledger.log_sale(db, phone, "tomato", 3, 90)
@@ -29,6 +29,8 @@ def test_log_sale_and_summary(db):
     assert summary["total_sales"] == 90
     assert summary["sale_count"] == 1
     assert summary["items_sold"]["tomato"] == 3
+    assert summary["items_purchased"]["tomato"] == 10
+    assert summary["items_remaining"]["tomato"] == 7
 
 
 def test_log_debt_tracked_as_owed(db):
@@ -49,3 +51,27 @@ def test_invoice_lifecycle(db):
 
     updated = ledger.respond_to_invoice(db, invoice.id, accept=True)
     assert updated.status.value == "accepted"
+
+
+def test_expired_invoice_cannot_be_accepted(db):
+    phone = "+254700000004"
+    invoice = ledger.create_invoice(db, phone, "Nyali Hotel", 4200, deadline_days=-1)
+
+    with pytest.raises(ValueError, match="deadline"):
+        ledger.respond_to_invoice(db, invoice.id, accept=True)
+
+    assert invoice.status.value == "auto_rejected"
+
+
+def test_stock_never_goes_negative(db):
+    phone = "+254700000005"
+    ledger.log_purchase(db, phone, "tilapia", 5, 1500)
+    ledger.log_sale(db, phone, "tilapia", 7, 2100)
+
+    vendor = ledger.get_or_create_vendor(db, phone)
+    assert ledger.stock_remaining(
+        db,
+        vendor.id,
+        "tilapia",
+        datetime.utcnow() - timedelta(days=1),
+    ) == 0
