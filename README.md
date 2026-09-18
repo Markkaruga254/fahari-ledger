@@ -18,10 +18,24 @@ for the exact USSD screens.
    docker compose up --build
    ```
 
-3. Create the tables (first run only):
+3. Create the tables and seed the deterministic demo scenario:
 
    ```bash
    docker compose exec app python -m scripts.seed_demo_data
+   ```
+
+   The demo vendor is `+254700000000`. The seeded state is:
+
+   - 30kg tilapia purchased for KES 12,000
+   - 13kg sold for KES 7,800
+   - 17kg remaining
+   - KES 2,000 outstanding debt
+   - KES 4,200 pending invoice from Nyali Hotel Supplies
+
+   The seed is database-only and does not send SMS. To rebuild the scenario:
+
+   ```bash
+   docker compose exec app python -m scripts.seed_demo_data --reset
    ```
 
 4. Expose your local server to Africa's Talking with ngrok (or similar) and
@@ -40,6 +54,8 @@ demo (rather than waiting on a timer):
 ```bash
 docker compose exec app python -m scripts.trigger_etims_event --phone +254700000000
 ```
+
+This helper sends an SMS through the configured Africa's Talking sender.
 
 ## Running tests
 

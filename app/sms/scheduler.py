@@ -1,10 +1,9 @@
 """
-Two background jobs:
-  - overstock check: periodically scans open stock per vendor/item and fires
-    the nudge SMS once per threshold breach.
-  - end-of-day summary: fires once per vendor at a fixed hour.
+Background notification jobs.
 
-Kept deliberately simple (APScheduler, in-process) for the hackathon build.
+The scheduler derives stock from the ledger rather than reconstructing it from
+only sold items. A vendor can therefore receive an overstock alert even when
+an item has been purchased but has not sold yet.
 """
 from datetime import datetime
 
@@ -23,13 +22,19 @@ def check_overstock_job():
     db = SessionLocal()
     try:
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
         for vendor in db.query(Vendor).all():
             summary = ledger.today_summary(db, vendor.id)
-            for item, sold_qty in summary["items_sold"].items():
-                purchased_qty = ledger.stock_remaining(db, vendor.id, item, today_start) + sold_qty
-                remaining = purchased_qty - sold_qty
+
+            for item, purchased_qty in summary["items_purchased"].items():
+                sold_qty = summary["items_sold"].get(item, 0.0)
+                remaining = max(purchased_qty - sold_qty, 0.0)
+
                 if overstock.should_nudge(purchased_qty, sold_qty):
-                    send_sms(vendor.phone_number, templates.overstock_nudge(item, remaining))
+                    send_sms(
+                        vendor.phone_number,
+                        templates.overstock_nudge(item, remaining),
+                    )
     finally:
         db.close()
 
@@ -40,10 +45,16 @@ def send_eod_summaries_job():
         for vendor in db.query(Vendor).all():
             summary = ledger.today_summary(db, vendor.id)
             pending = len(ledger.pending_invoices(db, vendor.id))
+
             if summary["sale_count"] == 0 and pending == 0:
                 continue
+
             msg = templates.end_of_day_summary(
-                summary["total_sales"], summary["total_owed_to_vendor"], summary["sale_count"], pending
+                summary["total_sales"],
+                summary["total_owed_to_vendor"],
+                summary["sale_count"],
+                pending,
+                summary["items_remaining"],
             )
             send_sms(vendor.phone_number, msg)
     finally:
@@ -52,6 +63,19 @@ def send_eod_summaries_job():
 
 def start_scheduler():
     if not _scheduler.running:
-        _scheduler.add_job(check_overstock_job, "interval", minutes=30, id="overstock_check")
-        _scheduler.add_job(send_eod_summaries_job, "cron", hour=19, minute=0, id="eod_summary")
+        _scheduler.add_job(
+            check_overstock_job,
+            "interval",
+            minutes=30,
+            id="overstock_check",
+            replace_existing=True,
+        )
+        _scheduler.add_job(
+            send_eod_summaries_job,
+            "cron",
+            hour=19,
+            minute=0,
+            id="eod_summary",
+            replace_existing=True,
+        )
         _scheduler.start()
