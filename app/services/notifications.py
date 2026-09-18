@@ -29,6 +29,13 @@ def send_invoice_alert(vendor_phone: str, buyer_name: str, amount: float, days_l
     )
 
 
+def send_voice_sale_confirmation(vendor_phone: str, item: str, quantity: float, price: float) -> dict:
+    return send_sms(
+        vendor_phone,
+        templates.voice_sale_confirmation(item, quantity, price),
+    )
+
+
 def send_end_of_day_summary(
     vendor_phone: str,
     total_sales: float,
