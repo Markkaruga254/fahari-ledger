@@ -9,6 +9,8 @@ from datetime import datetime
 
 from app.db.session import SessionLocal
 from app.services import ledger
+from app.sms import templates
+from app.sms.sender import send_sms
 from app.ussd.session import get_session, clear_session
 
 
@@ -187,7 +189,7 @@ def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
         if value not in {"1", "2"}:
             return "CON Choose 1 for Yes or 2 for No", False
         notify = value == "1"
-        ledger.log_debt(
+        debt = ledger.log_debt(
             db,
             phone_number,
             data["customer_phone"],
@@ -195,6 +197,11 @@ def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
             data["amount"],
             notify,
         )
+        if debt.notify_customer:
+            send_sms(
+                debt.customer_phone,
+                templates.debt_reminder("the seller", debt.amount, debt.item),
+            )
         session["state"] = "END"
         return f"END Logged: KES {data['amount']:.0f} owed by {data['customer_phone']}.", True
 
