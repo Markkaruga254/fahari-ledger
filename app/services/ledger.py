@@ -11,7 +11,13 @@ from sqlalchemy.orm import Session
 from app.db.models import Vendor, Purchase, Sale, Debt, Invoice, InvoiceStatus
 
 
+def normalize_phone(phone_number: str) -> str:
+    return phone_number.strip()
+
+
 def get_or_create_vendor(db: Session, phone_number: str) -> Vendor:
+    phone_number = normalize_phone(phone_number)
+
     vendor = db.query(Vendor).filter(Vendor.phone_number == phone_number).first()
     if vendor is None:
         vendor = Vendor(phone_number=phone_number)

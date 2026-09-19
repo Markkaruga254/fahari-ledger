@@ -20,6 +20,14 @@ def db():
     session.close()
 
 
+def test_vendor_phone_whitespace_is_normalized(db):
+    vendor = ledger.get_or_create_vendor(db, "+254700000010")
+    same_vendor = ledger.get_or_create_vendor(db, "  +254700000010  ")
+
+    assert same_vendor.id == vendor.id
+    assert same_vendor.phone_number == "+254700000010"
+
+
 def test_log_sale_and_summary_includes_remaining_stock(db):
     phone = "+254700000001"
     ledger.log_purchase(db, phone, "tomato", 10, 250)
