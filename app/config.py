@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     at_shortcode: str = "*384*1234#"
     at_sender_id: str = "FahariLedger"
 
-    database_url: str = "postgresql://fahari:fahari@localhost:5432/fahari_ledger"
+    database_url: str = "postgresql://fahari:fahari@db:5432/fahari_ledger"
 
     asr_provider: str = "whisper"
     asr_api_key: str = ""
