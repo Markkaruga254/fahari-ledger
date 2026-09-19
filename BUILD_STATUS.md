@@ -3,7 +3,7 @@
 **Repository:** `Markkaruga254/fahari-ledger`  
 **Canonical branch:** `main`  
 **Hackathon:** Africa's Talking Telecommunications Innovation Hackathon — Mombasa, 30 September 2026  
-**Last updated:** 18 September 2026
+**Last updated:** 19 September 2026
 
 This document is the engineering reference for **what Fahari Ledger currently has, what has been tested, what is intentionally simulated, and what we build next**.
 
@@ -237,14 +237,18 @@ docker compose exec app pytest -q
 Latest verified result:
 
 ```
-30 passed in 2.43s
+31 passed in 2.13s
 ```
 
-No warnings were reported.
+The full suite passed cleanly inside the Docker runtime. Host-side pytest initially exposed an environment mismatch because Kali is using Python 3.13 while the repository pins `psycopg2-binary==2.9.9`; the application runtime remains Python 3.12.14 in Docker. No dependency changes were made.
 
 ### Tested areas
 
 - Core ledger operations
+- Vendor phone normalization (whitespace variants resolve to the same vendor)
+- Docker application rebuild from the current repository state
+- FastAPI health endpoint
+- End-to-end USSD purchase smoke test against the rebuilt container
 - Stock calculations
 - End-of-day summaries
 - Debt tracking
@@ -362,6 +366,8 @@ The important architectural rule is:
 ---
 
 ## 7. What is NOT built yet
+
+The core application build has now reached a stable local integration checkpoint. The remaining work is primarily real telecom integration and demo hardening, rather than core ledger construction.
 
 These are intentional next-stage items, not failures.
 
@@ -628,7 +634,9 @@ A judge should be able to understand Fahari from one transaction.
 
 ## 10. Immediate execution order
 
-### Next session
+### Next session — 20 September 2026
+
+**Start from the telecom integration layer. Do not reopen the completed core ledger/USSD work unless a new integration test exposes a regression.**
 
 **1. Voice Test Number — use the two-week window**
 - configure the number
@@ -708,12 +716,17 @@ Fahari Ledger is ready for the final demo when all of the following are true:
 **Voice pipeline:** ✅  
 **Public callback setup:** ✅  
 **Deterministic demo seed:** ✅  
-**Automated tests:** ✅ 30 passing  
+**Automated tests:** ✅ 31 passing
+**Docker runtime:** ✅ Python 3.12.14
+**Docker rebuild + health smoke test:** ✅
+**USSD end-to-end purchase smoke test:** ✅
+**Vendor phone whitespace normalization:** ✅
+**Local working tree / origin:** ✅ synchronized on `main` at commit `1e927cb`  
 **AT Voice Test Number:** ✅ Received — two-week testing window
 
 ### Next
 
-**Real AT Voice E2E:** 🔥 NOW  
+**Real AT Voice E2E:** 🔥 NEXT PHASE  
 **AT USSD integration:** 🔜  
 **AT SMS integration:** 🔜  
 **Cross-channel E2E testing:** 🔜  
@@ -760,3 +773,37 @@ Completed:
 - The previous "awaiting approval" status is superseded
 
 **Next milestone:** use the Voice Test Number for a real call-to-ledger transaction, then connect and verify USSD and SMS.
+
+
+### 19 September 2026 — Core validation and repair checkpoint
+
+Completed and verified:
+
+- Corrected the application database configuration to point at the Docker PostgreSQL service.
+- Rebuilt the application container from the current repository state.
+- Verified Docker runtime is Python 3.12.14.
+- Ran the complete automated suite: **31 passed in 2.13s**.
+- Investigated host-side pytest failures and confirmed they were caused by the host Python 3.13 environment attempting to build the pinned `psycopg2-binary==2.9.9`; the repository dependency set was left unchanged because the Docker runtime is healthy.
+- Added vendor phone whitespace normalization so values such as `  +254700000010  ` resolve to the same vendor.
+- Added and passed a regression test for vendor phone normalization.
+- Validated USSD purchase flow state-by-state against the rebuilt application: main menu → purchase → item → quantity → total cost → successful ledger write.
+- Verified `/health` returns `{"status":"ok"}`.
+- Verified Docker app and PostgreSQL containers are running after rebuild.
+- Confirmed local `main` and `origin/main` are synchronized at commit `1e927cb`.
+- Identified the remaining Africa's Talking SMS authentication failure as an external provider-credential/configuration issue; it does not prevent the core ledger transaction from being persisted.
+
+### Current stage
+
+**Phase completed:** Core application build + local integration validation.
+
+The project has moved from feature construction into **real telecom integration and demo hardening**. The core ledger, USSD application flow, database persistence, invoice workflow, debt workflow, notifications orchestration, eTIMS simulation, and first-pass Voice pipeline are implemented and covered by automated/local validation.
+
+### Next phase — tomorrow
+
+1. **Real Africa's Talking Voice E2E** — configure/use the available Voice Test Number, place one real call, verify callback → recording → ASR → parser → ledger, and verify spoken/SMS confirmation.
+2. **Real Africa's Talking USSD** — connect the live callback and complete the core purchase/sale flow from a real phone.
+3. **Real Africa's Talking SMS** — resolve/configure provider authentication and verify real delivery of required notification types.
+4. **Cross-channel E2E** — purchase → sale → stock → notification → debt → invoice → USSD response → EOD summary → Voice.
+5. **Demo hardening** — clean/reset deterministic data, verify logs/fallbacks, protect credentials/test numbers, and rehearse the final 3-minute story.
+
+**Rule for the next phase:** do not add new product features until the real telecom paths have been exercised and the existing system is repeatable end-to-end.
