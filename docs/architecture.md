@@ -13,6 +13,22 @@
 | End-of-day summary | SMS (auto) | Sales, debts owed, pending invoices. |
 | Voice logging | Voice + ASR | One scripted demo path — `app/voice/`. Kept isolated from the USSD core. |
 
+## Operational surface
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /ussd` | AT USSD callback — session state machine |
+| `POST /voice`, `POST /voice/recording` | AT Voice callbacks |
+| `POST /sms/status` | AT SMS delivery-report callback (optional; logs only, always 200) |
+| `GET /health` | Liveness — process is up |
+| `GET /ready` | Readiness — database is reachable (`SELECT 1`) |
+
+`app/sms/sender.py` retries a transient AT SMS failure up to 3 times with a
+short linear backoff before giving up and logging at error level; every
+external-network module (`sms/sender.py`, `voice/asr_client.py`) logs through
+the standard `logging` module under `fahari.*` rather than `print`, so
+failures are visible in whatever log aggregation the deployment uses.
+
 ## Why the modules are isolated
 
 `app/ussd/`, `app/sms/`, `app/voice/`, and `app/etims_sim/` do not import from

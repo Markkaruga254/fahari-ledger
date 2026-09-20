@@ -49,7 +49,7 @@ Configure your AT app with:
 
 - USSD callback: `https://<public-host>/ussd`
 - Voice callback: `https://<public-host>/voice`
-- SMS delivery reports: `https://<public-host>/sms/status` (optional, if enabled)
+- SMS delivery reports (optional): `https://<public-host>/sms/status`
 
 **Important:** Africa's Talking currently states that its Voice Sandbox is not
 operational. For actual Voice testing, request a **Voice Test Number** from
@@ -67,6 +67,25 @@ The voice flow is:
 8. Fahari returns XML confirming the sale to the caller.
 
 Africa's Talking documents `.wav` and `.mp3` as supported recording formats.
+
+Set `ASR_PROVIDER=whisper` (OpenAI) or `ASR_PROVIDER=google` (Google Cloud
+Speech-to-Text, `sw-KE` locale) in `.env` — both are implemented in
+`app/voice/asr_client.py`. A transcription failure with either provider falls
+back gracefully to a "please use USSD instead" response; it never corrupts
+ledger data.
+
+## Health and readiness
+
+- `GET /health` — liveness only. Returns `{"status": "ok"}` once the process
+  is up; does not touch the database.
+- `GET /ready` — readiness. Runs `SELECT 1` against the configured database
+  and returns 503 if it can't. Use this one for deploy/tunnel health checks
+  and pre-demo verification, not `/health`.
+
+Delivery-report callbacks received at `/sms/status` are logged (via the
+standard `logging` module, under `fahari.*` loggers — set `LOG_LEVEL` in
+`.env` to control verbosity) and always return `200 OK`; the product does not
+depend on them to function.
 
 ## Rehearsal helper
 

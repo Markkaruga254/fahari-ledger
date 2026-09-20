@@ -792,9 +792,47 @@ Completed and verified:
 - Confirmed local `main` and `origin/main` are synchronized at commit `1e927cb`.
 - Identified the remaining Africa's Talking SMS authentication failure as an external provider-credential/configuration issue; it does not prevent the core ledger transaction from being persisted.
 
+### 20 September 2026 — Operational hardening
+
+Completed and verified (all local, no Docker/Postgres — full suite run
+against SQLite via `pytest`, no external network calls):
+
+- Implemented the `/sms/status` Africa's Talking delivery-report callback
+  (`app/sms/router.py`), previously documented in the README but not wired
+  into `app/main.py`. Logs only; always returns `200 OK` so AT never retries
+  it into a spam loop.
+- Added retry-with-backoff to `app/sms/sender.py`: up to 3 attempts with a
+  short linear backoff before an SMS send is logged and swallowed as an
+  error, so one transient AT network blip no longer costs a notification
+  outright.
+- Replaced `print()` calls in the SMS and Voice/ASR adapters with structured
+  `logging` (`fahari.*` loggers, configurable via `LOG_LEVEL`).
+- Implemented the previously-stubbed Google Cloud Speech-to-Text path in
+  `app/voice/asr_client.py` (`ASR_PROVIDER=google`), `sw-KE` locale with
+  `en-KE` fallback, alongside the existing Whisper path.
+- Added `GET /ready` (checks DB connectivity via `SELECT 1`, returns 503 if
+  unreachable) alongside the existing `GET /health` liveness check — use
+  `/ready` for deploy/tunnel verification before a demo, not `/health`.
+- Migrated FastAPI startup from the deprecated `@app.on_event("startup")` to
+  a `lifespan` context manager (removes a deprecation warning; no behavior
+  change).
+- Added 13 new tests covering SMS retry/backoff, the `/sms/status` route,
+  `/health` and `/ready`, and both branches of the Google ASR path (success,
+  no-results, missing API key, HTTP error, MP3 vs. WAV encoding selection).
+- Full suite: **44 passed** (31 previous + 13 new), run locally against
+  SQLite — no regressions in existing behavior.
+- Updated `README.md`, `docs/architecture.md`, and `.env.example`
+  (`LOG_LEVEL`) to document all of the above.
+
+**Not done in this pass (needs your real credentials/hardware, not code):**
+real AT Voice E2E call, real AT USSD session, real AT SMS delivery, and the
+cross-channel rehearsal — see the runbook for the exact sequence.
+
 ### Current stage
 
-**Phase completed:** Core application build + local integration validation.
+**Phase completed:** Core application build + local integration validation +
+operational hardening (retries, logging, readiness check, delivery-report
+callback, Google ASR).
 
 The project has moved from feature construction into **real telecom integration and demo hardening**. The core ledger, USSD application flow, database persistence, invoice workflow, debt workflow, notifications orchestration, eTIMS simulation, and first-pass Voice pipeline are implemented and covered by automated/local validation.
 
