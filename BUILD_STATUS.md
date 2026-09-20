@@ -3,7 +3,7 @@
 **Repository:** `Markkaruga254/fahari-ledger`  
 **Canonical branch:** `main`  
 **Hackathon:** Africa's Talking Telecommunications Innovation Hackathon — Mombasa, 30 September 2026  
-**Last updated:** 19 September 2026
+**Last updated:** 20 September 2026
 
 This document is the engineering reference for **what Fahari Ledger currently has, what has been tested, what is intentionally simulated, and what we build next**.
 
@@ -716,16 +716,22 @@ Fahari Ledger is ready for the final demo when all of the following are true:
 **Voice pipeline:** ✅  
 **Public callback setup:** ✅  
 **Deterministic demo seed:** ✅  
-**Automated tests:** ✅ 31 passing
+**Automated tests:** ✅ 44 passing (31 core + 13 added in operational hardening)
 **Docker runtime:** ✅ Python 3.12.14
 **Docker rebuild + health smoke test:** ✅
 **USSD end-to-end purchase smoke test:** ✅
 **Vendor phone whitespace normalization:** ✅
-**Local working tree / origin:** ✅ synchronized on `main` at commit `1e927cb`  
+**SMS delivery-report callback (`/sms/status`):** ✅
+**SMS send retry/backoff:** ✅
+**Structured logging (`fahari.*`, `LOG_LEVEL`):** ✅
+**Google Cloud Speech-to-Text ASR path:** ✅ (alongside existing Whisper path)
+**Readiness check (`/ready`, DB connectivity):** ✅
+**Local working tree / origin:** ✅ pushed and confirmed on `main` at commit `59e7294`  
 **AT Voice Test Number:** ✅ Received — two-week testing window
 
 ### Next
 
+**Push the `.env` config-crash fix (below) to `main`:** 🔥 IMMEDIATE — not yet on origin  
 **Real AT Voice E2E:** 🔥 NEXT PHASE  
 **AT USSD integration:** 🔜  
 **AT SMS integration:** 🔜  
@@ -827,6 +833,31 @@ against SQLite via `pytest`, no external network calls):
 **Not done in this pass (needs your real credentials/hardware, not code):**
 real AT Voice E2E call, real AT USSD session, real AT SMS delivery, and the
 cross-channel rehearsal — see the runbook for the exact sequence.
+
+### 20 September 2026 — Pushed to `main`, config-crash bug caught and fixed
+
+- Confirmed the operational-hardening work above is live on GitHub: commit
+  `ffcf8f5` ("Add SMS status callback, retry/backoff, Google ASR, /ready
+  endpoint, logging") and `59e7294` ("Remove patch file from repo, ignore
+  .patch files") are both on `origin/main`. Verified by a clean re-clone of
+  the repository, not just a local push confirmation.
+- **Bug found on verification:** `.env.example` gained a `LOG_LEVEL` entry
+  in the hardening pass, but `app/config.py`'s `Settings` class never
+  declared a matching field. `pydantic-settings` rejects unknown `.env` keys
+  by default, so `cp .env.example .env` — exactly what the README's own
+  quick-start step 1 says to do — produced an immediate `extra_forbidden`
+  crash on startup. This did not show up in the hardening pass's own test
+  run because that run happened with no `.env` file present, which masked
+  it.
+- **Fix:** declared `log_level: str = "INFO"` on `Settings` and added
+  `extra="ignore"` to `model_config` as a second line of defense against the
+  same class of bug for any future `.env.example` addition that isn't
+  mirrored in `app/config.py`.
+- Re-verified with an actual `.env.example`-derived `.env` file (not just
+  defaults) this time: **44 passed**, `Settings` loads cleanly,
+  `log_level` reads back as `"INFO"`.
+- **Status:** fix is ready as a patch, not yet applied/pushed to `origin`.
+  This is the single next action before anything else in this document.
 
 ### Current stage
 
