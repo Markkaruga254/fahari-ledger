@@ -16,7 +16,14 @@ class Settings(BaseSettings):
     overstock_hour_threshold: int = 15  # 24h clock, e.g. 15 = 3pm
     overstock_stock_ratio: float = 0.4  # nudge if > 40% of morning stock unsold by the hour above
 
-    model_config = SettingsConfigDict(env_file=".env")
+    # Declared here (rather than left to app/utils/logging.py's os.environ read
+    # alone) so pydantic-settings doesn't reject it as an unknown .env key —
+    # BaseSettings forbids extra fields by default. extra="ignore" is added
+    # as a second line of defense against the same class of bug for any
+    # future .env.example addition that isn't mirrored here.
+    log_level: str = "INFO"
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()
