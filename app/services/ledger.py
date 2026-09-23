@@ -2,6 +2,8 @@
 Core business logic — deliberately isolated from telecom/external APIs.
 This is the durable business-event layer underneath USSD, SMS and Voice.
 """
+import math
+import re
 from datetime import datetime, timedelta
 
 from app.utils.time import utc_now
@@ -12,7 +14,38 @@ from app.db.models import Vendor, Purchase, Sale, Debt, Invoice, InvoiceStatus
 
 
 def normalize_phone(phone_number: str) -> str:
-    return phone_number.strip()
+    """Normalize a Kenyan phone number to E.164 (`+254...`).
+
+    Africa's Talking always delivers the vendor's number as E.164, but the
+    customer number in the debt flow is typed by the vendor on a feature
+    phone, so `0711...`, `254711...`, `+254 711...` and `0711-111-111` must
+    all resolve to the same record. Anything that doesn't look like a phone
+    number is returned stripped (callers validate separately).
+    """
+    cleaned = re.sub(r"[\s\-()]", "", phone_number.strip())
+    if cleaned.startswith("+"):
+        return cleaned
+    if cleaned.startswith("00"):
+        return "+" + cleaned[2:]
+    digits = re.sub(r"\D", "", cleaned)
+    if digits.startswith("0") and len(digits) == 10:
+        return "+254" + digits[1:]
+    if digits.startswith("254") and len(digits) == 12:
+        return "+" + digits
+    return cleaned
+
+
+def is_valid_phone(phone_number: str) -> bool:
+    """Loose E.164 check: optional `+` followed by 9–15 digits."""
+    return re.fullmatch(r"\+?\d{9,15}", normalize_phone(phone_number)) is not None
+
+
+def _require_positive_finite(name: str, value: float) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(f"{name} must be a number")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be greater than 0")
+    return value
 
 
 def get_or_create_vendor(db: Session, phone_number: str) -> Vendor:
@@ -28,6 +61,8 @@ def get_or_create_vendor(db: Session, phone_number: str) -> Vendor:
 
 
 def log_purchase(db: Session, phone_number: str, item: str, quantity: float, cost: float, unit: str = "kg") -> Purchase:
+    _require_positive_finite("quantity", quantity)
+    _require_positive_finite("cost", cost)
     vendor = get_or_create_vendor(db, phone_number)
     purchase = Purchase(vendor_id=vendor.id, item=item, quantity=quantity, cost=cost, unit=unit)
     db.add(purchase)
@@ -45,6 +80,8 @@ def log_sale(
     unit: str = "kg",
     source: str = "ussd",
 ) -> Sale:
+    _require_positive_finite("quantity", quantity)
+    _require_positive_finite("price", price)
     vendor = get_or_create_vendor(db, phone_number)
     sale = Sale(
         vendor_id=vendor.id,
@@ -68,6 +105,10 @@ def log_debt(
     amount: float,
     notify_customer: bool = False,
 ) -> Debt:
+    _require_positive_finite("amount", amount)
+    customer_phone = normalize_phone(customer_phone)
+    if not is_valid_phone(customer_phone):
+        raise ValueError("customer phone number is invalid")
     vendor = get_or_create_vendor(db, phone_number)
     debt = Debt(
         vendor_id=vendor.id,
@@ -116,7 +157,6 @@ def today_summary(db: Session, vendor_id: int) -> dict:
     debts = db.query(Debt).filter(
         Debt.vendor_id == vendor_id,
         Debt.settled == False,  # noqa: E712
-        Debt.created_at >= since,
     ).all()
 
     total_sales = sum(s.price for s in sales)
@@ -153,6 +193,7 @@ def create_invoice(
     deadline_days: int = 30,
 ) -> Invoice:
     """Represents a simulated buyer-initiated (eTIMS) invoice event."""
+    _require_positive_finite("amount", amount)
     vendor = get_or_create_vendor(db, phone_number)
     invoice = Invoice(
         vendor_id=vendor.id,

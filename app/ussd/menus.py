@@ -5,10 +5,11 @@ Design principle: keep the core actions short and predictable. The business
 event is committed before the session ends; telecom notifications remain
 outside the core ledger path.
 """
-from math import ceil
+from math import ceil, isfinite
 
 from app.utils.time import utc_now
 
+from app.db.models import Invoice
 from app.db.session import SessionLocal
 from app.services import ledger
 from app.services import notifications
@@ -170,9 +171,9 @@ def _debt_flow(db, session, phone_number, value) -> tuple[str, bool]:
     data = session["data"]
 
     if session["state"] == "DEBT_CUSTOMER":
-        customer = value.strip()
-        if not customer:
-            return "CON Enter customer phone number", False
+        customer = ledger.normalize_phone(value)
+        if not ledger.is_valid_phone(customer):
+            return "CON Enter a valid customer phone number (e.g. 0711111111)", False
         data["customer_phone"] = customer
         session["state"] = "DEBT_ITEM"
         return "CON Enter item (or 0 to skip)", False
@@ -241,6 +242,10 @@ def _invoices_menu(db, session, phone_number, value) -> tuple[str, bool]:
             invoice_id = int(value)
         except ValueError:
             return "CON Enter a valid invoice number", False
+        vendor = ledger.get_or_create_vendor(db, phone_number)
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        if invoice is None or invoice.vendor_id != vendor.id:
+            return "CON Enter a valid invoice number", False
         data["invoice_id"] = invoice_id
         return "CON 1. Accept 2. Dispute", False
 
@@ -263,4 +268,6 @@ def _positive_float(value: str) -> float | None:
         number = float(value.strip())
     except (ValueError, AttributeError):
         return None
-    return number if number > 0 else None
+    if not isfinite(number) or number <= 0:
+        return None
+    return number

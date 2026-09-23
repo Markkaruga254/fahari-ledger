@@ -13,13 +13,17 @@ from app.ussd.router import router as ussd_router
 from app.voice.router import router as voice_router
 from app.sms.router import router as sms_router
 from app.sms.scheduler import start_scheduler
-from app.db.session import SessionLocal
+from app.db.session import Base, SessionLocal, engine
 
 logger = logging.getLogger("fahari.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Idempotent: a fresh `docker compose up` serves USSD immediately even
+    # before the demo seed has ever run. (Alembic migrations can replace this
+    # post-hackathon; see app/db/migrations/README.md.)
+    Base.metadata.create_all(engine)
     start_scheduler()
     logger.info("Fahari Ledger started")
     yield

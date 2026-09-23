@@ -10,7 +10,7 @@ router = APIRouter()
 @router.post("/ussd", response_class=PlainTextResponse)
 async def ussd_callback(
     sessionId: str = Form(...),
-    serviceCode: str = Form(...),
+    serviceCode: str = Form(""),
     phoneNumber: str = Form(...),
     text: str = Form(""),
 ):

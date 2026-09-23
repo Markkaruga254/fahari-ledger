@@ -3,7 +3,7 @@
 **Repository:** `Markkaruga254/fahari-ledger`  
 **Canonical branch:** `main`  
 **Hackathon:** Africa's Talking Telecommunications Innovation Hackathon — Mombasa, 30 September 2026  
-**Last updated:** 20 September 2026
+**Last updated:** 23 September 2026
 
 This document is the engineering reference for **what Fahari Ledger currently has, what has been tested, what is intentionally simulated, and what we build next**.
 
@@ -858,6 +858,19 @@ cross-channel rehearsal — see the runbook for the exact sequence.
   `log_level` reads back as `"INFO"`.
 - **Status:** fix is ready as a patch, not yet applied/pushed to `origin`.
   This is the single next action before anything else in this document.
+
+### 23 September 2026 — Correctness hardening (senior-engineer pass)
+
+Fixed before demo hardening, all verified in Docker (`81 passed`: 44 existing + 37 new in `tests/test_hardening.py`) plus a live end-to-end USSD run against the running container (purchase → sale → debt → check-today, all persisted and re-verified in Postgres; smoke rows removed afterwards):
+
+- `today_summary` now counts **all** unsettled debts, not just today's — a debt logged yesterday no longer vanishes from "Check today" and the end-of-day SMS. Matches the documented "total outstanding debts" behaviour.
+- Kenyan phone normalization: `0711...`, `254711...`, spaced/dashed variants all resolve to `+254...` (`normalize_phone` + `is_valid_phone` in `app/services/ledger.py`); customer numbers are normalized before storage in `log_debt`.
+- Ledger-layer validation: `log_purchase` / `log_sale` / `log_debt` / `create_invoice` raise `ValueError` on zero/negative/non-finite amounts (defense in depth behind the USSD and Voice callers).
+- USSD debt flow rejects non-phone customer input without persisting anything; USSD numeric fields reject `inf`/`nan`.
+- USSD invoice selection is now scoped to the calling vendor — vendor B can no longer accept/dispute vendor A's invoice by id.
+- Voice callbacks accept AT's real `callerNumber` field (previously only `phoneNumber`, which live AT voice posts do not send — this would have 422'd real calls) and degrade to a spoken fallback instead of erroring when the caller or recording URL is missing; zero/negative parsed quantities are rejected without a DB write.
+- `POST /ussd` accepts a missing `serviceCode`; tables are now created at app startup (`lifespan`) so a fresh `docker compose up` serves USSD before the seed ever runs.
+- `docs/ussd-menu-tree.md` now documents the actual prompts, validation rules, and edge cases instead of a TODO.
 
 ### Current stage
 

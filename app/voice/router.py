@@ -27,7 +27,11 @@ def _voice_xml(message: str) -> Response:
 
 
 @router.post("/voice", response_class=Response)
-async def voice_callback(phoneNumber: str = Form(...), isActive: str = Form("1")):
+async def voice_callback(
+    phoneNumber: str = Form(""),
+    isActive: str = Form("1"),
+    callerNumber: str = Form(""),
+):
     callback_url = escape(_recording_callback_url(), quote=True)
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -41,30 +45,49 @@ async def voice_callback(phoneNumber: str = Form(...), isActive: str = Form("1")
 
 
 @router.post("/voice/recording", response_class=Response)
-async def voice_recording_callback(phoneNumber: str = Form(...), recordingUrl: str = Form(...)):
-    transcript = transcribe(recordingUrl)
+async def voice_recording_callback(
+    phoneNumber: str = Form(""),
+    recordingUrl: str = Form(""),
+    callerNumber: str = Form(""),
+):
+    # Africa's Talking identifies the caller as `callerNumber` on voice
+    # callbacks; `phoneNumber` is accepted too so sandbox/simulator posts
+    # shaped like the USSD callback keep working. Either way we must never
+    # 422 on a real call — a missing field degrades to a spoken fallback.
+    caller = phoneNumber or callerNumber
+    if not caller:
+        return _voice_xml("Sorry, I could not identify your number. Please dial the USSD code instead.")
+
+    transcript = transcribe(recordingUrl) if recordingUrl else None
     if not transcript:
         return _voice_xml("Sorry, I could not hear that. Please dial the USSD code instead.")
 
     parsed = parse_transcript(transcript)
-    if not parsed or parsed.get("price") is None:
+    if (
+        not parsed
+        or parsed.get("price") is None
+        or (parsed.get("quantity") or 0) <= 0
+        or (parsed.get("price") or 0) <= 0
+    ):
         return _voice_xml("I did not catch the full details. Please try the USSD code instead.")
 
     db = SessionLocal()
     try:
         ledger.log_sale(
             db,
-            phoneNumber,
+            caller,
             parsed["item"],
             parsed["quantity"],
             parsed["price"],
             source="voice",
         )
+    except ValueError:
+        return _voice_xml("I did not catch the full details. Please try the USSD code instead.")
     finally:
         db.close()
 
     notifications.send_voice_sale_confirmation(
-        phoneNumber,
+        caller,
         parsed["item"],
         parsed["quantity"],
         parsed["price"],
