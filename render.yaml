@@ -1,0 +1,36 @@
+# Minimal Render blueprint: web service (this Dockerfile) + managed Postgres.
+# No workers, no Redis, no migrations — the app creates tables at startup
+# (see app/main.py lifespan) and keeps USSD sessions in-process by design.
+services:
+  - type: web
+    name: fahari-ledger
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fahari-postgres
+          property: connectionString
+      - key: AT_USERNAME
+        value: sandbox
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_SHORTCODE
+        value: "*384*41309#"
+      - key: AT_SENDER_ID
+        value: FahariLedger
+      - key: ASR_PROVIDER
+        value: whisper
+      - key: ASR_API_KEY
+        sync: false
+      # Set after first deploy to the service's public URL, e.g.
+      # https://fahari-ledger.onrender.com (needed for /voice callbacks).
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
+
+databases:
+  - name: fahari-postgres
+    plan: free

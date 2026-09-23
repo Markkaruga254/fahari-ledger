@@ -1,0 +1,14 @@
+# Keep the image lean and avoid baking local state/secrets into it.
+# (Render builds from git, where .env is already ignored — this is a second
+# line of defense, and it also keeps slow local `docker build`s fast.)
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.env
+postgres_data/
+*.db
+*.patch
+.DS_Store

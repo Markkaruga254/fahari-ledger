@@ -98,6 +98,33 @@ docker compose exec app python -m scripts.trigger_etims_event --phone +254700000
 
 This helper sends an SMS through the configured Africa's Talking sender.
 
+## Deploying to Render
+
+`render.yaml` is a minimal blueprint: one Docker web service plus one
+managed PostgreSQL database. No workers, no Redis, no migrations — tables
+are created at startup and USSD sessions stay in-process by design.
+
+1. Push `main` to GitHub, then in Render: **New → Blueprint**, point it at
+   the repo. Render creates the web service and database together and wires
+   `DATABASE_URL` (internal URL) automatically.
+2. Fill the `sync: false` variables in the dashboard: `AT_API_KEY`,
+   `ASR_API_KEY`, and — after the first deploy — `PUBLIC_BASE_URL` with the
+   service's public URL (needed for `/voice` callbacks).
+3. Deploy, then verify with the `/health` → `/ready` → `POST /ussd` curl
+   sequence (given in the deployment handoff) **before** touching AT.
+4. Only after manual `/ussd` verification passes, replace the ngrok callback
+   in the AT Sandbox USSD channel with `https://<service>.onrender.com/ussd`.
+   ngrok remains usable for local testing; it is simply no longer required.
+
+To seed the deployed database (safe: only touches the demo
+vendor `+254700000000`; run from this repo so the image has its dependencies):
+
+```bash
+DATABASE_URL='<prod-database-url>' \
+  docker compose run --rm -e DATABASE_URL app \
+  python -m scripts.seed_demo_data --reset
+```
+
 ## Running tests
 
 ```bash

@@ -889,3 +889,24 @@ The project has moved from feature construction into **real telecom integration 
 5. **Demo hardening** — clean/reset deterministic data, verify logs/fallbacks, protect credentials/test numbers, and rehearse the final 3-minute story.
 
 **Rule for the next phase:** do not add new product features until the real telecom paths have been exercised and the existing system is repeatable end-to-end.
+
+### 23 September 2026 — Render deployment preparation (no deploy yet)
+
+Deployment config only — no USSD/ledger/voice/SMS/seed logic touched:
+
+- `app/db/session.py`: `normalize_database_url()` converts provider-issued
+  `postgres://` URLs to `postgresql://` (the pinned SQLAlchemy 2.0.35 rejects
+  the former — reproduced in the app container). `postgresql://` (local
+  Compose) and `sqlite://` (tests) pass through untouched, so one code path
+  serves local and production.
+- `Dockerfile`: `CMD` honors `${PORT:-8000}` (Render requires binding `$PORT`;
+  local `docker build`/`run` behavior unchanged; Compose overrides the command
+  with `--reload` on `:8000` as before).
+- `.dockerignore` (new): keeps `.venv/`, `.git/`, `.env`, caches out of the
+  image — faster builds, no secret-baking footgun.
+- `render.yaml` (new, minimal): one Docker web service + one managed Postgres,
+  `/health` check, secrets as `sync: false`. No workers/Redis/migrations.
+- `.env.example`: real sandbox shortcode `*384*41309#`, `PORT` note, production
+  `DATABASE_URL` / `PUBLIC_BASE_URL` notes. Placeholders only.
+- `tests/test_deploy_config.py` (new): 5 URL-normalization tests.
+- `README.md`: short "Deploying to Render" section with seed command.
